@@ -1,65 +1,107 @@
 import re
 
-def loadDictionary(fileName):
+
+def loadWordList(fileName):
     fileDesc = open(fileName, 'r')
     words = fileDesc.read().splitlines()
     fileDesc.close()
     return words
 
 
-def buildLetterDictionary(word):
-    dictionary = {}
-    for letter in word:
-        if letter not in dictionary.keys():
-            dictionary[letter] = 1
+def filterByLength(allWords, length):
+    filteredWords = []
+    for word in allWords:
+        if len(word) == length:
+            filteredWords.append(word)
+    return filteredWords
+
+
+def filterByExcludedLetters(allWords, excludedLetters):
+    pattern = re.compile('^[^' + excludedLetters + ']+$')
+    filteredWords = []
+    for word in allWords:
+        if pattern.match(word):
+            filteredWords.append(word)
+    return filteredWords
+
+
+def filterByIncludedLetters(allWords, includedLetters):
+    patternString = ''
+    for letter in includedLetters:
+        patternString += '(?=.*' + letter + ')'
+    pattern = re.compile(patternString)
+    filteredWords = []
+    for word in allWords:
+        if pattern.match(word):
+            filteredWords.append(word)
+    return filteredWords
+
+
+def filterByMispositionedLetters(allWords, mispositionedLetters):
+    patternString = '^'
+    for letter in mispositionedLetters:
+        if letter == '?':
+            patternString += '.'
         else:
-            dictionary[letter] += 1
-    return dictionary
+            patternString += '[^' + letter + ']'
+    pattern = re.compile(patternString)
+    filteredWords = []
+    for word in allWords:
+        if pattern.match(word):
+            filteredWords.append(word)
+    return filteredWords
+
+
+def filterByPositionedLetters(allWords, positionedLetters):
+    pattern = re.compile(positionedLetters.replace('?', '[A-Z]'))
+    filteredWords = []
+    for word in allWords:
+        if pattern.match(word):
+            filteredWords.append(word)
+    return filteredWords
+
+
+# def buildLetterDictionary(word):
+#     dictionary = {}
+#     for letter in word:
+#         if letter not in dictionary.keys():
+#             dictionary[letter] = 1
+#         else:
+#             dictionary[letter] += 1
+#     return dictionary
 
 
 # load the dictionary of all valid words
-allWords = loadDictionary(r'dictionary.txt')
+allWords = loadWordList(r'dictionary.txt')
+
+# filter down to only the five letter long words
+gameWordLength = 6
+gameWords = filterByLength(allWords, gameWordLength)
 
 while True:
-    # get the level's letter set
-    levelLetters = input('letter set: ')
-    levelLetters = ''.join(sorted(levelLetters.upper()))
-    levelDict = buildLetterDictionary(levelLetters)
-    numLevelLetters = len(levelLetters)
+    # prompt for game state elements
+    excLetters = input('excluded:      ')
+    misLetters = input('mispositioned: ')
+    posLetters = input('positioned:    ')
 
-    # build the level's word list
-    levelWords = []
-    for word in allWords:
-        # bail early if there are more letters than are available
-        if len(word) > numLevelLetters:
-            continue
+    # condition inputs
+    excLetters = ''.join(sorted(excLetters.upper()))  # sort and uppercase
+    misLetters = misLetters.upper()
+    if len(misLetters) != gameWordLength:  # malformed, prompt again
+        continue
+    incLetters = misLetters.replace('?', '')
+    posLetters = posLetters.upper()
+    if len(posLetters) != gameWordLength:  # malformed, prompt again
+        continue
 
-        # compare letter dictionaries and add it to the list
-        wordDict = buildLetterDictionary(word)
-        canBuild = True
-        for key in wordDict.keys():
-            if key not in levelDict.keys() or wordDict[key] > levelDict[key]:
-                canBuild = False
-                break
-        if canBuild:
-            levelWords.append(word)
+    # TODO: consider cross-validating inputs for consistency:
+    #       * non-empty intersection of include and exclude sets
+    #       * non-? in positional string are consistent with include and exclude sets
 
-    # sort by length and print them out
-    levelWords = sorted(levelWords, key=len)
-    for word in levelWords:
-        print(word)
-
-    # repeatedly prompt for patterns
-    while True:
-        # get the pattern string
-        patternStr = input('pattern: ').upper()
-        if len(patternStr) == 0:
-            break
-
-        # build the regular expression for matching
-        pattern = re.compile('\A' + patternStr.replace('?', '[A-Z]') + '\Z')
-
-        # test each level word against the pattern and print matches
-        for word in levelWords:
-            if pattern.match(word):
-                print(word)
+    # apply filters for excluded letters, included letters, and position-fixed letters
+    prevWordCount = len(gameWords)
+    gameWords = filterByExcludedLetters(gameWords, excLetters)
+    gameWords = filterByIncludedLetters(gameWords, incLetters)
+    gameWords = filterByMispositionedLetters(gameWords, misLetters)
+    gameWords = filterByPositionedLetters(gameWords, posLetters)
+    print(gameWords)
